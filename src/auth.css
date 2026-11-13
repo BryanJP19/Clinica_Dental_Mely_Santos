@@ -1,0 +1,6 @@
+.hp{position:absolute!important;left:-9999px;opacity:0;height:0;width:0}
+.login{max-width:26rem;margin:0 auto}.login h2{font-size:2rem;margin-bottom:.6rem}.login .btn{width:100%;margin-top:1rem}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:1rem;margin-bottom:1rem}.bar h2{margin:0;margin-right:auto}
+.tabs{display:flex;gap:1.5rem;border-bottom:1px solid var(--line);margin-bottom:1.5rem}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:.6rem 0;font:500 1rem var(--sans);cursor:pointer}.tabs .on{color:var(--text);border-color:var(--gold)}
+.fsel{width:auto;margin-top:1rem}.card form+form{margin-top:1.5rem}.card .hours button{flex-shrink:0}
