@@ -3,11 +3,15 @@ export const PHONE = '(849) 453-5436'
 export const ADDRESS = 'Uniremos, Santo Domingo · Av. Abraham Lincoln #126'
 export const HOURS = [['Lunes a viernes', '8:00 a. m. – 5:00 p. m.'], ['Sábados', '8:00 a. m. – 12:00 m.']]
 export const SERVICES = [
-  { id: 'ortodoncia', name: 'Ortodoncia', desc: 'Brackets y alineadores para una mordida correcta y una sonrisa alineada.', perks: 'Evaluación personalizada · controles mensuales' },
+  { id: 'Protesis', name: 'Protesis dental', desc: 'Reemplazo de dientes perdidos con prótesis removibles o fijas.', perks: 'Efecto inmediato' },
   { id: 'blanqueamiento', name: 'Blanqueamiento dental', desc: 'Aclara varios tonos en una sola sesión, cuidando el esmalte.', perks: 'Resultado visible el mismo día' },
-  { id: 'endodoncia', name: 'Endodoncia', desc: 'Tratamiento de conductos para salvar la pieza dental sin dolor.', perks: 'Anestesia local · menos sesiones' },
+  { id: 'endodoncia', name: 'Endodoncia (Tratamiento de canales)', desc: 'Tratamiento de conductos para salvar la pieza dental sin dolor.', perks: 'Anestesia local · menos sesiones' },
   { id: 'limpieza', name: 'Limpieza profunda', desc: 'Eliminación de sarro y placa para encías sanas y aliento fresco.', perks: 'Recomendada cada 6 meses' },
   { id: 'estetica', name: 'Estética dental', desc: 'Carillas y diseño de sonrisa a la medida de tu rostro.', perks: 'Diseño previo antes de iniciar' },
+  { id: 'Cirugia', name: 'Cirugía dental', desc: 'Intervenciones quirúrgicas para tratar problemas complejos en los dientes y tejidos bucales.', perks: 'Especialistas certificados · tecnología avanzada' },
+  { id: 'Odontopediatria', name: 'Odontopediatría (Niños)', desc: 'Atención dental especializada para niños y adolescentes.', perks: 'Ambiente amigable para los más pequeños' },
+  { id: 'Periodoncia', name: 'Periodoncia (Encías)', desc: 'Tratamiento de enfermedades de las encías y tejidos de soporte dental.', perks: 'Prevención de pérdida dental' },
+  { id: 'Operatoria', name: 'Operatoria (Caries)', desc: 'Restauración de dientes dañados mediante empastes y reconstrucciones.', perks: 'Materiales de alta calidad'}
 ]
 export const slotsFor = d => { const w = new Date(d + 'T00:00').getDay(); return w === 6 ? [['Mañana', ['08:00','09:00','10:00','11:00']]] : [['Mañana', ['08:00','09:00','10:00','11:00']], ['Tarde', ['13:00','14:00','15:00','16:00']]] }
 export const STATUS = ['Pendiente', 'Confirmada', 'Completada']
