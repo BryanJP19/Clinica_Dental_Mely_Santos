@@ -53,7 +53,7 @@ export default function BookingCalendar({ preset }) {
       {docs && !docs.length && <p className="card muted">Las reservas en línea no están disponibles por ahora. Escríbenos por WhatsApp.</p>}
       <form className="book" onSubmit={submit} noValidate>
         <div className="card">
-          {docs?.length > 1 && <><h3>Doctor/a</h3><div className="chips">{docs.map(d => <button type="button" key={d.id} className={'chip' + (doc === d.id ? ' on' : '')} onClick={() => { setDoc(d.id); setTime('') }}>{d.nombre}</button>)}</div></>}
+          {docs?.length > 0 && <><h3>Doctor/a</h3><div className="chips">{docs.map(d => <button type="button" key={d.id} className={'chip' + (doc === d.id ? ' on' : '')} onClick={() => { setDoc(d.id); setTime('') }}>{d.nombre}</button>)}</div></>}
           <h3>1. Servicio</h3>
           <div className="chips">{SERVICES.map(s => <button type="button" key={s.id} className={'chip' + (service === s.id ? ' on' : '')} onClick={() => setService(s.id)}>{s.name}</button>)}</div>
           <h3>2. Fecha</h3>
