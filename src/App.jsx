@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import useLocalStorage from './useLocalStorage'
+import { useState, useEffect, useRef } from 'react'
 import Navbar from './components/Navbar'
 import Home from './components/Home'
 import About from './components/About'
@@ -9,19 +8,27 @@ import AdminPanel from './components/AdminPanel'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
 import Login from './components/Login'
-import { getSession, touch, logout } from './auth'
+import { getSession, logout } from './auth'
 
 const routes = ['inicio', 'nosotros', 'servicios', 'reservar', 'contacto', 'admin']
 const read = () => { const h = location.hash.replace('#', ''); return routes.includes(h) ? h : 'inicio' }
+const IDLE = 30 * 60e3
 
 export default function App() {
   const [page, setPage] = useState(read())
-  const [appts, setAppts] = useLocalStorage('ms_citas', [])
   const [preset, setPreset] = useState('')
-  const [user, setUser] = useState(getSession)
+  const [user, setUser] = useState(null)
+  const last = useRef(Date.now())
+  useEffect(() => { getSession().then(setUser) }, [])
   useEffect(() => { const f = () => { setPage(read()); window.scrollTo(0, 0) }; addEventListener('hashchange', f); return () => removeEventListener('hashchange', f) }, [])
-  useEffect(() => { if (!user) return; const t = () => touch(); const c = setInterval(() => { if (!getSession()) setUser(null) }, 30000); ['click', 'keydown'].forEach(e => addEventListener(e, t)); return () => { clearInterval(c); ['click', 'keydown'].forEach(e => removeEventListener(e, t)) } }, [user])
-  const out = () => { logout(); setUser(null) }
+  useEffect(() => {
+    if (!user) return
+    const t = () => { last.current = Date.now() }
+    const c = setInterval(() => { if (Date.now() - last.current > IDLE) out() }, 30000)
+    ;['click', 'keydown'].forEach(e => addEventListener(e, t))
+    return () => { clearInterval(c); ['click', 'keydown'].forEach(e => removeEventListener(e, t)) }
+  }, [user])
+  const out = async () => { await logout(); setUser(null) }
   const book = (id = '') => { setPreset(id); location.hash = 'reservar' }
   return (
     <>
@@ -30,9 +37,9 @@ export default function App() {
         {page === 'inicio' && <Home onBook={book} />}
         {page === 'nosotros' && <About onBook={book} />}
         {page === 'servicios' && <Services onBook={book} />}
-        {page === 'reservar' && <BookingCalendar appts={appts} setAppts={setAppts} preset={preset} />}
+        {page === 'reservar' && <BookingCalendar preset={preset} />}
         {page === 'contacto' && <Contact />}
-        {page === 'admin' && (user ? <AdminPanel appts={appts} setAppts={setAppts} user={user} onLogout={out} /> : <Login onLogin={setUser} />)}
+        {page === 'admin' && (user ? <AdminPanel user={user} onLogout={out} /> : <Login onLogin={u => { last.current = Date.now(); setUser(u) }} />)}
       </main>
       <Footer />
     </>

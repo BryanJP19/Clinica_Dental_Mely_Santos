@@ -1,54 +1,42 @@
-const enc = new TextEncoder()
-const b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)))
-const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0))
+import { supabase } from './supabase'
 export const ROLES = { admin: 'Doctora principal', doctor: 'Doctor/a', secretaria: 'Secretaria' }
-const MAX_FAILS = 5, LOCK_MS = 5 * 60e3, IDLE_MS = 30 * 60e3
-const read = (s, k, d) => { try { return JSON.parse(s.getItem(k)) ?? d } catch { return d } }
-const save = (k, v) => localStorage.setItem(k, JSON.stringify(v))
-
-async function derive(pw, salt) {
-  const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits'])
-  return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 210000, hash: 'SHA-256' }, key, 256))
-}
-const same = (a, b) => a.length === b.length && [...a].reduce((r, c, i) => r | (c.charCodeAt(0) ^ b.charCodeAt(i)), 0) === 0
-
-export const listUsers = () => read(localStorage, 'ms_users', [])
-export const doctors = () => listUsers().filter(u => u.activo && (u.rol === 'admin' || u.rol === 'doctor')).map(({ id, nombre }) => ({ id, nombre }))
 export const checkPw = pw => pw.length >= 10 && /[a-zA-Z]/.test(pw) && /\d/.test(pw) ? '' : 'La contraseña necesita mínimo 10 caracteres, con letras y números.'
 
-export async function createUser({ nombre, usuario, rol, password }) {
-  const users = listUsers(), u = usuario.trim().toLowerCase()
-  if (nombre.trim().length < 3 || !/^[a-z0-9._-]{3,30}$/.test(u)) return { error: 'Nombre o usuario inválido (usuario: letras, números, punto, guion).' }
-  if (users.some(x => x.usuario === u)) return { error: 'Ese usuario ya existe.' }
-  const e = checkPw(password); if (e) return { error: e }
-  if (!users.length) rol = 'admin'; else if (!ROLES[rol] || rol === 'admin') rol = rol === 'doctor' ? 'doctor' : 'secretaria'
-  const salt = crypto.getRandomValues(new Uint8Array(16))
-  const user = { id: crypto.randomUUID(), nombre: nombre.trim().slice(0, 60), usuario: u, rol, activo: true, salt: b64(salt), hash: await derive(password, salt) }
-  save('ms_users', [...users, user]); return { user }
+export async function profileOf(id) {
+  const { data } = await supabase.from('profiles').select('id,nombre,rol,activo').eq('id', id).maybeSingle()
+  return data?.activo ? data : null
 }
-export async function resetPassword(id, password) {
-  const e = checkPw(password); if (e) return { error: e }
-  const salt = crypto.getRandomValues(new Uint8Array(16)), hash = await derive(password, salt)
-  save('ms_users', listUsers().map(u => u.id === id ? { ...u, salt: b64(salt), hash } : u)); return { ok: true }
+export async function login(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+  if (error) return { error: 'Correo o contraseña incorrectos.' }
+  const user = await profileOf(data.user.id)
+  if (!user) { await supabase.auth.signOut(); return { error: 'Esta cuenta no tiene acceso.' } }
+  return { user }
 }
-export const setActive = (id, activo) => save('ms_users', listUsers().map(u => u.id === id ? { ...u, activo } : u))
+export async function getSession() {
+  const { data } = await supabase.auth.getSession()
+  return data.session ? profileOf(data.session.user.id) : null
+}
+export const logout = () => supabase.auth.signOut()
+export const changePassword = async pw => { const e = checkPw(pw); if (e) return { error: e }; const { error } = await supabase.auth.updateUser({ password: pw }); return { error: error?.message } }
 
-export async function login(usuario, password) {
-  const lock = read(localStorage, 'ms_lock', { n: 0, until: 0 })
-  if (lock.until > Date.now()) return { error: `Demasiados intentos. Espera ${Math.ceil((lock.until - Date.now()) / 60000)} min.` }
-  const u = listUsers().find(x => x.usuario === usuario.trim().toLowerCase() && x.activo)
-  const h = await derive(password, u ? unb64(u.salt) : crypto.getRandomValues(new Uint8Array(16)))
-  if (u && same(h, u.hash)) {
-    save('ms_lock', { n: 0, until: 0 }); sessionStorage.setItem('ms_sess', JSON.stringify({ id: u.id, t: Date.now() })); return { user: u }
-  }
-  const n = lock.n + 1
-  save('ms_lock', n >= MAX_FAILS ? { n: 0, until: Date.now() + LOCK_MS } : { n, until: 0 })
-  return { error: 'Usuario o contraseña incorrectos.' }
+export const doctors = async () => (await supabase.rpc('doctores_publicos')).data || []
+export const busySlots = async (doctor, fecha) => (await supabase.rpc('horas_ocupadas', { p_doctor: doctor, p_fecha: fecha })).data || []
+export async function reservar(a) {
+  const { error } = await supabase.rpc('reservar_cita', { p_doctor: a.doctorId, p_servicio: a.servicio, p_fecha: a.fecha, p_hora: a.hora, p_nombre: a.nombre, p_telefono: a.telefono, p_correo: a.correo })
+  if (!error) return {}
+  const m = error.message || ''
+  return { error: m.includes('horario ocupado') ? 'Ese horario acaba de ser tomado. Elige otro.' : m.includes('pendientes') ? 'Ya tienes citas pendientes con este teléfono. Llámanos para otra.' : 'No pudimos guardar la cita. Revisa los datos e intenta de nuevo.' }
 }
-export function getSession() {
-  const s = read(sessionStorage, 'ms_sess', null)
-  if (!s || Date.now() - s.t > IDLE_MS) { sessionStorage.removeItem('ms_sess'); return null }
-  return listUsers().find(x => x.id === s.id && x.activo) || null
+
+export const listCitas = async () => (await supabase.from('citas').select('*, doctor:profiles(nombre)').order('fecha').order('hora')).data || []
+export const setEstado = (id, estado) => supabase.from('citas').update({ estado }).eq('id', id)
+export const deleteCita = id => supabase.from('citas').delete().eq('id', id)
+export const listProfiles = async () => (await supabase.from('profiles').select('id,nombre,rol,activo').order('nombre')).data || []
+export const updateProfile = (id, patch) => supabase.from('profiles').update(patch).eq('id', id)
+export async function enviarMensaje(m) {
+  const { error } = await supabase.rpc('enviar_mensaje', { p_nombre: m.nombre, p_correo: m.correo, p_telefono: m.telefono, p_mensaje: m.mensaje })
+  return { error: error ? 'No pudimos enviar el mensaje. Intenta de nuevo o escríbenos por WhatsApp.' : null }
 }
-export const touch = () => { const s = read(sessionStorage, 'ms_sess', null); if (s) sessionStorage.setItem('ms_sess', JSON.stringify({ ...s, t: Date.now() })) }
-export const logout = () => sessionStorage.removeItem('ms_sess')
+export const listMensajes = async () => (await supabase.from('mensajes').select('*').order('created_at', { ascending: false })).data || []
+export const deleteMensaje = id => supabase.from('mensajes').delete().eq('id', id)

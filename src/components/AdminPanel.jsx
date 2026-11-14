@@ -1,72 +1,81 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SERVICES, STATUS } from '../data'
-import { ROLES, listUsers, createUser, setActive, resetPassword } from '../auth'
+import { ROLES, listCitas, setEstado, deleteCita, listProfiles, updateProfile, changePassword, listMensajes, deleteMensaje } from '../auth'
 
 function Team({ me }) {
-  const [users, setUsers] = useState(listUsers())
-  const [f, setF] = useState({ nombre: '', usuario: '', rol: 'doctor', password: '' })
-  const [rp, setRp] = useState({ id: '', password: '' })
-  const [msg, setMsg] = useState('')
-  const add = async e => {
-    e.preventDefault(); const r = await createUser(f); setMsg(r.error || 'Usuario creado.')
-    if (r.user) { setF({ nombre: '', usuario: '', rol: 'doctor', password: '' }); setUsers(listUsers()) }
-  }
-  const reset = async e => {
-    e.preventDefault(); if (!rp.id) return setMsg('Elige un usuario.')
-    const r = await resetPassword(rp.id, rp.password); setMsg(r.error || 'Contraseña actualizada.'); if (!r.error) setRp({ id: '', password: '' })
-  }
+  const [users, setUsers] = useState([])
+  const load = () => listProfiles().then(setUsers)
+  useEffect(() => { load() }, [])
+  const patch = async (id, p) => { await updateProfile(id, p); load() }
   return (
-    <div className="grid2">
-      <div className="card">
-        <h3>Equipo</h3>
-        <ul className="hours">{users.map(u => (
-          <li key={u.id}><span>{u.nombre} · {ROLES[u.rol]}{!u.activo && ' (inactivo)'}</span>
-            {u.id !== me.id && <button className="btn btn-ghost btn-sm" onClick={() => { setActive(u.id, !u.activo); setUsers(listUsers()) }}>{u.activo ? 'Desactivar' : 'Activar'}</button>}</li>
-        ))}</ul>
-      </div>
-      <div className="card">
-        <form onSubmit={add}>
-          <h3>Agregar persona</h3>
-          <input required maxLength={60} placeholder="Nombre completo" value={f.nombre} onChange={e => setF({ ...f, nombre: e.target.value })} />
-          <input required maxLength={30} placeholder="Usuario" value={f.usuario} onChange={e => setF({ ...f, usuario: e.target.value })} autoComplete="off" />
-          <select value={f.rol} onChange={e => setF({ ...f, rol: e.target.value })}><option value="doctor">Doctor/a</option><option value="secretaria">Secretaria</option></select>
-          <input required type="password" maxLength={128} placeholder="Contraseña inicial" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
-          <button className="btn">Crear usuario</button>
-        </form>
-        <form onSubmit={reset}>
-          <h3>Restablecer contraseña</h3>
-          <select value={rp.id} onChange={e => setRp({ ...rp, id: e.target.value })}><option value="">Elige usuario</option>{users.map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}</select>
-          <input required type="password" maxLength={128} placeholder="Nueva contraseña" value={rp.password} onChange={e => setRp({ ...rp, password: e.target.value })} autoComplete="new-password" />
-          <button className="btn btn-ghost">Actualizar</button>
-        </form>
-        {msg && <p className="muted" role="status">{msg}</p>}
-      </div>
+    <div className="card">
+      <h3>Equipo</h3>
+      <p className="muted">Para agregar a alguien nuevo, créale el usuario en Supabase (Authentication → Add user) y aquí le asignas el rol.</p>
+      <ul className="hours">{users.map(u => (
+        <li key={u.id}><span>{u.nombre}{!u.activo && ' (inactivo)'}</span>
+          {u.id === me.id ? <b>{ROLES[u.rol]}</b> : <span className="row0">
+            <select value={u.rol} onChange={e => patch(u.id, { rol: e.target.value })}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+            <button className="btn btn-ghost btn-sm" onClick={() => patch(u.id, { activo: !u.activo })}>{u.activo ? 'Desactivar' : 'Activar'}</button></span>}
+        </li>))}</ul>
     </div>
   )
 }
 
-export default function AdminPanel({ appts, setAppts, user, onLogout }) {
+function Account() {
+  const [pw, setPw] = useState(''); const [msg, setMsg] = useState('')
+  const go = async e => { e.preventDefault(); const r = await changePassword(pw); setMsg(r.error || 'Contraseña actualizada.'); if (!r.error) setPw('') }
+  return (
+    <form className="card login" style={{ margin: 0 }} onSubmit={go}>
+      <h3>Cambiar mi contraseña</h3>
+      <input required type="password" maxLength={128} placeholder="Nueva contraseña" value={pw} onChange={e => setPw(e.target.value)} autoComplete="new-password" />
+      <button className="btn">Actualizar</button>{msg && <p className="muted" role="status">{msg}</p>}
+    </form>
+  )
+}
+
+function Messages() {
+  const [m, setM] = useState(null)
+  useEffect(() => { listMensajes().then(setM) }, [])
+  const del = async id => { await deleteMensaje(id); setM(m.filter(x => x.id !== id)) }
+  if (!m) return <p className="muted">Cargando mensajes…</p>
+  return !m.length ? <p className="card muted">No hay mensajes.</p> : (
+    <div className="grid2">{m.map(x => (
+      <div className="card" key={x.id}><h3>{x.nombre}</h3><p>{x.mensaje}</p>
+        <small className="muted">{x.correo}{x.telefono && ' · ' + x.telefono} · {new Date(x.created_at).toLocaleString('es-DO')}</small>
+        <div className="row"><button className="btn btn-ghost btn-sm" onClick={() => del(x.id)}>Eliminar</button></div></div>))}</div>
+  )
+}
+
+export default function AdminPanel({ user, onLogout }) {
   const [tab, setTab] = useState('citas')
+  const [appts, setAppts] = useState(null)
   const [fd, setFd] = useState('')
-  const docs = listUsers().filter(u => u.rol === 'admin' || u.rol === 'doctor')
-  const mine = user.rol === 'doctor' ? appts.filter(a => a.doctorId === user.id) : appts
-  const shown = mine.filter(a => !fd || a.doctorId === fd).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))
-  const set = (id, estado) => setAppts(appts.map(a => a.id === id ? { ...a, estado } : a))
-  const del = id => user.rol !== 'doctor' && confirm('¿Eliminar esta cita?') && setAppts(appts.filter(a => a.id !== id))
+  const staff = user.rol !== 'doctor'
+  useEffect(() => { listCitas().then(setAppts) }, [])
+  const list = appts || []
+  const docs = [...new Map(list.map(a => [a.doctor_id, a.doctor?.nombre])).entries()]
+  const shown = list.filter(a => !fd || a.doctor_id === fd)
+  const set = async (id, estado) => { const { error } = await setEstado(id, estado); if (!error) setAppts(list.map(a => a.id === id ? { ...a, estado } : a)) }
+  const del = async id => { if (staff && confirm('¿Eliminar esta cita?')) { const { error } = await deleteCita(id); if (!error) setAppts(list.filter(a => a.id !== id)) } }
   return (
     <section className="wrap page">
       <div className="bar"><h2>Panel</h2><span className="muted">{user.nombre} · {ROLES[user.rol]}</span><button className="btn btn-ghost btn-sm" onClick={onLogout}>Cerrar sesión</button></div>
-      {user.rol === 'admin' && <div className="tabs"><button className={tab === 'citas' ? 'on' : ''} onClick={() => setTab('citas')}>Citas</button><button className={tab === 'equipo' ? 'on' : ''} onClick={() => setTab('equipo')}>Equipo</button></div>}
-      {tab === 'equipo' && user.rol === 'admin' ? <Team me={user} /> : <>
-        <ul className="stats">{STATUS.map(s => <li key={s}><b>{mine.filter(a => a.estado === s).length}</b> {s.toLowerCase()}s</li>)}</ul>
-        {user.rol !== 'doctor' && docs.length > 1 && <select className="fsel" value={fd} onChange={e => setFd(e.target.value)}><option value="">Todos los doctores</option>{docs.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}</select>}
-        {!shown.length ? <p className="card muted">No hay citas para mostrar.</p> : (
+      <div className="tabs">
+        <button className={tab === 'citas' ? 'on' : ''} onClick={() => setTab('citas')}>Citas</button>
+        {user.rol === 'admin' && <button className={tab === 'equipo' ? 'on' : ''} onClick={() => setTab('equipo')}>Equipo</button>}
+        {staff && <button className={tab === 'mensajes' ? 'on' : ''} onClick={() => setTab('mensajes')}>Mensajes</button>}
+        <button className={tab === 'cuenta' ? 'on' : ''} onClick={() => setTab('cuenta')}>Mi cuenta</button>
+      </div>
+      {tab === 'equipo' && user.rol === 'admin' ? <Team me={user} /> : tab === 'mensajes' && staff ? <Messages /> : tab === 'cuenta' ? <Account /> : <>
+        <ul className="stats">{STATUS.map(s => <li key={s}><b>{list.filter(a => a.estado === s).length}</b> {s.toLowerCase()}s</li>)}</ul>
+        {staff && docs.length > 1 && <select className="fsel" value={fd} onChange={e => setFd(e.target.value)}><option value="">Todos los doctores</option>{docs.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select>}
+        {appts === null ? <p className="muted">Cargando citas…</p> : !shown.length ? <p className="card muted">No hay citas para mostrar.</p> : (
           <div className="table-wrap"><table>
             <thead><tr><th>Fecha</th><th>Hora</th><th>Doctor/a</th><th>Paciente</th><th>Servicio</th><th>Contacto</th><th>Estado</th><th></th></tr></thead>
             <tbody>{shown.map(a => (
-              <tr key={a.id}><td>{a.fecha}</td><td>{a.hora}</td><td>{a.doctor}</td><td>{a.nombre}</td><td>{SERVICES.find(s => s.id === a.servicio)?.name}</td><td>{a.telefono}<br />{a.correo}</td>
+              <tr key={a.id}><td>{a.fecha}</td><td>{a.hora}</td><td>{a.doctor?.nombre}</td><td>{a.nombre}</td><td>{SERVICES.find(s => s.id === a.servicio)?.name}</td><td>{a.telefono}<br />{a.correo}</td>
                 <td><select value={a.estado} onChange={e => set(a.id, e.target.value)}>{STATUS.map(s => <option key={s}>{s}</option>)}</select></td>
-                <td>{user.rol !== 'doctor' && <button className="btn btn-ghost btn-sm" onClick={() => del(a.id)}>Eliminar</button>}</td></tr>))}</tbody>
+                <td>{staff && <button className="btn btn-ghost btn-sm" onClick={() => del(a.id)}>Eliminar</button>}</td></tr>))}</tbody>
           </table></div>
         )}
       </>}

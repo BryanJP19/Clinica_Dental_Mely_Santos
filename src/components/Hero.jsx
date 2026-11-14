@@ -10,10 +10,10 @@ export default function Hero({ onBook }) {
           <a className="btn btn-ghost" href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noreferrer">Escribir por WhatsApp</a>
         </div>
         <ul className="stats">
-          <li><b>4+</b> años de experiencia</li><li><b>200+</b> pacientes atendidos</li><li><b>5</b> especialidades</li>
+          <li><b>10+</b> años de experiencia</li><li><b>2,500+</b> pacientes atendidos</li><li><b>5</b> especialidades</li>
         </ul>
       </div>
-      <img className="logo-hero" src="/logo.png" alt="Logotipo de la Dra. Mely Santos, Odontóloga" />
+      <div className="plaque"><img className="logo-hero" src="/logo.png" alt="Logotipo de la Dra. Mely Santos, Odontóloga" /></div>
     </section>
   )
 }

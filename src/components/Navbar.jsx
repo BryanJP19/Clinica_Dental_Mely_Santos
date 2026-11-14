@@ -1,5 +1,5 @@
 import { useState } from 'react'
-const links = [['inicio', 'Inicio'], ['nosotros', 'Sobre nosotros'], ['servicios', 'Servicios'], ['contacto', 'Contacto']]
+const links = [['inicio', 'Inicio'], ['nosotros', 'La clínica'], ['servicios', 'Servicios'], ['contacto', 'Contacto']]
 export default function Navbar({ page }) {
   const [open, setOpen] = useState(false)
   return (

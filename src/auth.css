@@ -4,3 +4,4 @@
 .tabs{display:flex;gap:1.5rem;border-bottom:1px solid var(--line);margin-bottom:1.5rem}
 .tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:.6rem 0;font:500 1rem var(--sans);cursor:pointer}.tabs .on{color:var(--text);border-color:var(--gold)}
 .fsel{width:auto;margin-top:1rem}.card form+form{margin-top:1.5rem}.card .hours button{flex-shrink:0}
+.row0{display:flex;gap:.5rem;align-items:center}.row0 select{width:auto;margin:0}
