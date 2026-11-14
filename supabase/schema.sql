@@ -74,7 +74,7 @@ create or replace function public.reservar_cita(p_doctor uuid, p_servicio text, 
 returns void language plpgsql security definer set search_path = public as $$
 declare hoy date := (now() at time zone 'America/Santo_Domingo')::date;
 begin
-  if p_servicio not in ('ortodoncia','blanqueamiento','endodoncia','limpieza','estetica') then raise exception 'servicio invalido'; end if;
+  if p_servicio !~ '^[a-z0-9_-]{2,40}$' then raise exception 'servicio invalido'; end if;
   if p_fecha < hoy or extract(dow from p_fecha) = 0 then raise exception 'fecha invalida'; end if;
   if p_hora !~ '^(08|09|10|11|13|14|15|16):00$' or (extract(dow from p_fecha) = 6 and p_hora >= '12:00') then raise exception 'hora invalida'; end if;
   if not exists (select 1 from public.profiles where id = p_doctor and activo and rol in ('admin','doctor')) then raise exception 'doctor invalido'; end if;
@@ -97,21 +97,6 @@ end $$;
 revoke execute on function public.doctores_publicos, public.horas_ocupadas, public.reservar_cita, public.enviar_mensaje, public.mi_rol from public;
 grant execute on function public.doctores_publicos, public.horas_ocupadas, public.reservar_cita, public.enviar_mensaje to anon, authenticated;
 grant execute on function public.mi_rol to authenticated;
-
-create or replace function public.reservar_cita(p_doctor uuid, p_servicio text, p_fecha date, p_hora text, p_nombre text, p_telefono text, p_correo text)
-returns void language plpgsql security definer set search_path = public as $$
-declare hoy date := (now() at time zone 'America/Santo_Domingo')::date;
-begin
-  if p_servicio !~ '^[a-z0-9_-]{2,40}$' then raise exception 'servicio invalido'; end if;
-  if p_fecha < hoy or extract(dow from p_fecha) = 0 then raise exception 'fecha invalida'; end if;
-  if p_hora !~ '^(08|09|10|11|13|14|15|16):00$' or (extract(dow from p_fecha) = 6 and p_hora >= '12:00') then raise exception 'hora invalida'; end if;
-  if not exists (select 1 from public.profiles where id = p_doctor and activo and rol in ('admin','doctor')) then raise exception 'doctor invalido'; end if;
-  p_nombre := trim(regexp_replace(p_nombre, '[<>]', '', 'g'));
-  if char_length(p_nombre) not between 3 and 80 or p_telefono !~ '^[0-9 ()+-]{10,20}$' or p_correo !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(p_correo) > 80 then raise exception 'datos invalidos'; end if;
-  if (select count(*) from public.citas where telefono = p_telefono and estado = 'Pendiente' and fecha >= hoy) >= 2 then raise exception 'citas pendientes'; end if;
-  insert into public.citas(doctor_id, servicio, fecha, hora, nombre, telefono, correo) values (p_doctor, p_servicio, p_fecha, p_hora, p_nombre, p_telefono, p_correo);
-exception when unique_violation then raise exception 'horario ocupado';
-end $$;
 
 -- Bucket público "clinica" para imágenes (foto de la doctora: sube doctora.jpg). Solo la administradora sube o borra.
 insert into storage.buckets (id, name, public) values ('clinica', 'clinica', true) on conflict (id) do nothing;
