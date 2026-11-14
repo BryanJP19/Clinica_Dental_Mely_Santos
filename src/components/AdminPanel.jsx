@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { SERVICES, STATUS } from '../data'
+import { waLink, mailLink } from '../notify'
 import { ROLES, listCitas, setEstado, deleteCita, listProfiles, updateProfile, changePassword, listMensajes, deleteMensaje } from '../auth'
 
 function Team({ me }) {
@@ -50,12 +51,13 @@ export default function AdminPanel({ user, onLogout }) {
   const [tab, setTab] = useState('citas')
   const [appts, setAppts] = useState(null)
   const [fd, setFd] = useState('')
+  const [notice, setNotice] = useState(null)
   const staff = user.rol !== 'doctor'
   useEffect(() => { listCitas().then(setAppts) }, [])
   const list = appts || []
   const docs = [...new Map(list.map(a => [a.doctor_id, a.doctor?.nombre])).entries()]
   const shown = list.filter(a => !fd || a.doctor_id === fd)
-  const set = async (id, estado) => { const { error } = await setEstado(id, estado); if (!error) setAppts(list.map(a => a.id === id ? { ...a, estado } : a)) }
+  const set = async (id, estado) => { const { error } = await setEstado(id, estado); if (!error) { setAppts(list.map(a => a.id === id ? { ...a, estado } : a)); if (estado === 'Confirmada') setNotice(list.find(a => a.id === id)) } }
   const del = async id => { if (staff && confirm('¿Eliminar esta cita?')) { const { error } = await deleteCita(id); if (!error) setAppts(list.filter(a => a.id !== id)) } }
   return (
     <section className="wrap page">
@@ -75,10 +77,15 @@ export default function AdminPanel({ user, onLogout }) {
             <tbody>{shown.map(a => (
               <tr key={a.id}><td>{a.fecha}</td><td>{a.hora}</td><td>{a.doctor?.nombre}</td><td>{a.nombre}</td><td>{SERVICES.find(s => s.id === a.servicio)?.name}</td><td>{a.telefono}<br />{a.correo}</td>
                 <td><select value={a.estado} onChange={e => set(a.id, e.target.value)}>{STATUS.map(s => <option key={s}>{s}</option>)}</select></td>
-                <td>{staff && <button className="btn btn-ghost btn-sm" onClick={() => del(a.id)}>Eliminar</button>}</td></tr>))}</tbody>
+                <td>{a.estado === 'Confirmada' && <a className="btn btn-sm" href={waLink(a)} target="_blank" rel="noreferrer">WhatsApp</a>} {staff && <button className="btn btn-ghost btn-sm" onClick={() => del(a.id)}>Eliminar</button>}</td></tr>))}</tbody>
           </table></div>
         )}
       </>}
+            {notice && <div className="modal" role="dialog" aria-modal="true"><div className="card gold">
+        <h3>Cita confirmada</h3><p>Avisa a {notice.nombre} con un clic:</p>
+        <div className="row"><a className="btn" href={waLink(notice)} target="_blank" rel="noreferrer" onClick={() => setNotice(null)}>Enviar por WhatsApp</a>
+          <a className="btn btn-ghost" href={mailLink(notice)} onClick={() => setNotice(null)}>Enviar por correo</a>
+          <button className="btn btn-ghost" onClick={() => setNotice(null)}>Ahora no</button></div></div></div>}
     </section>
   )
 }
